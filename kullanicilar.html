@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kullanıcı ve Personel Yönetimi</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: #121212; color: #fff; padding: 20px; }
+        header { display: flex; align-items: center; margin-bottom: 20px; }
+        .back-btn { background: none; color: #00d2ff; border: none; font-size: 16px; cursor: pointer; font-weight: bold; margin-right: 15px; }
+        
+        /* Sekmeler */
+        .tabs { display: flex; background: #1e1e1e; border-radius: 8px; overflow: hidden; margin-bottom: 20px; border: 1px solid #333; }
+        .tab-btn { flex: 1; padding: 12px; background: none; border: none; color: #aaa; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 13px; }
+        .tab-btn.active { background: #00d2ff; color: #121212; }
+
+        /* Panel İçerikleri */
+        .panel { display: none; background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; }
+        .panel.active { display: block; }
+
+        /* Form Elemanları (Yeni Kayıt İçin) */
+        input, select { width: 100%; padding: 12px; margin-bottom: 15px; background: #2c2c2c; border: 1px solid #333; color: #fff; border-radius: 6px; outline: none; }
+        input:focus, select:focus { border-color: #00d2ff; }
+        .btn-mavi { width: 100%; padding: 15px; background: #00d2ff; color: #121212; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+
+        /* Liste Kartları (Roller, Primler, Performans) */
+        .user-card { background: #2c2c2c; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 10px; border-left: 4px solid #00d2ff; }
+        .user-card.pasif { border-left-color: #ff4d4d; opacity: 0.7; }
+        .user-header { display: flex; justify-content: space-between; align-items: center; }
+        .user-header h3 { font-size: 16px; }
+        
+        .islem-grubu { display: flex; gap: 10px; }
+        .btn-kucuk { flex: 1; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        .btn-yesil { background: #00cc66; color: #121212; }
+        .btn-kirmizi { background: #ff4d4d; color: #fff; }
+        .btn-sari { background: #ffaa00; color: #121212; }
+
+        /* Performans AI Kartı */
+        .ai-kutu { background: #121212; padding: 10px; border-radius: 6px; border: 1px dashed #00d2ff; font-size: 13px; color: #00d2ff; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <header>
+        <button class="back-btn" onclick="window.location.href='dashboard.html'">❮ Geri</button>
+        <h2>Yönetim Paneli</h2>
+    </header>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="sekmeAc('kayit')">👤 Yeni Kayıt</button>
+        <button class="tab-btn" onclick="sekmeAc('roller')">⚙️ Roller / Durum</button>
+        <button class="tab-btn" onclick="sekmeAc('primler')">💰 Primler</button>
+        <button class="tab-btn" onclick="sekmeAc('performans')">📈 Performans</button>
+    </div>
+
+    <div id="kayit" class="panel active">
+        <h3 style="margin-bottom:15px; color:#00d2ff;">Sisteme Yeni Kullanıcı Ekle</h3>
+        <input type="text" id="yKullaniciAdi" placeholder="Kullanıcı Adı (Boşluksuz)">
+        <input type="password" id="ySifre" placeholder="Şifre (En az 6 haneli)">
+        <select id="yRol">
+            <option value="Standart">Standart Kullanıcı</option>
+            <option value="Yönetici">Yönetici (Tam Yetkili)</option>
+        </select>
+        <input type="number" id="yPrim" placeholder="Başlangıç Prim Yüzdesi (Örn: 25)">
+        <button class="btn-mavi" id="kayitBtn">Kullanıcıyı Oluştur</button>
+        <p id="kayitMesaj" style="color:#00cc66; margin-top:10px; display:none;"></p>
+    </div>
+
+    <div id="roller" class="panel">
+        <h3 style="margin-bottom:15px;">Rol ve Yetki Düzenle</h3>
+        <div id="listeRoller">Yükleniyor...</div>
+    </div>
+
+    <div id="primler" class="panel">
+        <h3 style="margin-bottom:15px;">Prim Seviyelerini Ayarla</h3>
+        <div id="listePrimler">Yükleniyor...</div>
+    </div>
+
+    <div id="performans" class="panel">
+        <h3 style="margin-bottom:15px;">Yapay Zeka Performans Analizi</h3>
+        <div id="listePerformans">Satış verileri analiz ediliyor...</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA2BFK8FPamp258Uk8OR3MXvLFWRMZFOxo",
+            projectId: "sacrytecherp-373b5"
+        };
+
+        // ANA UYGULAMA (Veritabanı işlemleri için)
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // İKİNCİ UYGULAMA (Sadece admini sistemden atmadan yeni üye kaydı yapmak için)
+        const appIkinci = initializeApp(firebaseConfig, "UyeKayitMotoru");
+        const authIkinci = getAuth(appIkinci);
+
+        // Güvenlik Kontrolü
+        if(localStorage.getItem('kullaniciRolu') !== "Yönetici") {
+            document.body.innerHTML = "<h2 style='padding:20px; color:#ff4d4d;'>Bu sayfaya sadece yöneticiler erişebilir!</h2>";
+        }
+
+        // Sekme Değiştirme Fonksiyonu
+        window.sekmeAc = function(sekmeId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(sekmeId).classList.add('active');
+        }
+
+        // --- 1. YENİ ÜYE KAYDI ---
+        document.getElementById('kayitBtn').addEventListener('click', async () => {
+            const ad = document.getElementById('yKullaniciAdi').value.trim();
+            const sifre = document.getElementById('ySifre').value;
+            const rol = document.getElementById('yRol').value;
+            const prim = document.getElementById('yPrim').value;
+
+            if(!ad || !sifre || !prim) return alert("Lütfen tüm alanları doldurun!");
+            if(sifre.length < 6) return alert("Şifre en az 6 karakter olmalıdır!");
+
+            document.getElementById('kayitBtn').innerText = "Oluşturuluyor...";
+            const formatliEmail = ad.toLowerCase().replace(/\s+/g, '') + "@sacrytech.com";
+
+            try {
+                // İkinci Auth üzerinden kayıt yapıyoruz (Mevcut admin oturumu kapanmaz)
+                const userCred = await createUserWithEmailAndPassword(authIkinci, formatliEmail, sifre);
+                const yeniUID = userCred.user.uid;
+
+                // Veritabanına kaydet
+                await setDoc(doc(db, "Users", yeniUID), {
+                    kullaniciAdi: ad,
+                    email: formatliEmail,
+                    rol: rol,
+                    durum: "Aktif",
+                    bakiye: 0,
+                    primYuzdesi: Number(prim)
+                });
+
+                // Başarı mesajı
+                document.getElementById('kayitMesaj').innerText = `${ad} başarıyla sisteme eklendi!`;
+                document.getElementById('kayitMesaj').style.display = "block";
+                document.getElementById('yKullaniciAdi').value = "";
+                document.getElementById('ySifre').value = "";
+                
+                // Listeleri Yenile
+                verileriCek();
+
+            } catch (error) {
+                console.error(error);
+                alert("Kayıt oluşturulamadı. Bu kullanıcı adı alınmış olabilir.");
+            } finally {
+                document.getElementById('kayitBtn').innerText = "Kullanıcıyı Oluştur";
+            }
+        });
+
+        // --- 2, 3, 4. LİSTELERİ ÇEKME VE DOLDURMA ---
+        async function verileriCek() {
+            const snapUsers = await getDocs(collection(db, "Users"));
+            let tumKullanicilar = [];
+            snapUsers.forEach(d => tumKullanicilar.push({ id: d.id, ...d.data() }));
+
+            // Satışları Çek (Performans için)
+            const snapSales = await getDocs(collection(db, "Sales"));
+            let performansVerisi = {};
+            tumKullanicilar.forEach(u => {
+                performansVerisi[u.kullaniciAdi] = { ciro: 0, kar: 0, satisSayisi: 0 };
+            });
+
+            snapSales.forEach(s => {
+                const data = s.data();
+                // İade edilmemiş satışları hesapla
+                if(data.satanKullanici && performansVerisi[data.satanKullanici] && data.iadeDurumu !== true) {
+                    performansVerisi[data.satanKullanici].ciro += data.satisFiyati;
+                    performansVerisi[data.satanKullanici].kar += data.kar;
+                    performansVerisi[data.satanKullanici].satisSayisi += 1;
+                }
+            });
+
+            cizRoller(tumKullanicilar);
+            cizPrimler(tumKullanicilar);
+            cizPerformans(tumKullanicilar, performansVerisi);
+        }
+
+        // Roller Çizimi
+        function cizRoller(kullanicilar) {
+            const div = document.getElementById('listeRoller');
+            div.innerHTML = "";
+            kullanicilar.forEach(u => {
+                const btnDurum = u.durum === "Aktif" 
+                    ? `<button class="btn-kucuk btn-kirmizi" onclick="guncelle('${u.id}', 'durum', 'Pasif')">Girişi Kapat (Pasif)</button>` 
+                    : `<button class="btn-kucuk btn-yesil" onclick="guncelle('${u.id}', 'durum', 'Aktif')">Girişi Aç (Aktif)</button>`;
+                
+                const btnRol = u.rol === "Standart"
+                    ? `<button class="btn-kucuk btn-mavi" onclick="guncelle('${u.id}', 'rol', 'Yönetici')">Yönetici Yap</button>`
+                    : `<button class="btn-kucuk btn-sari" onclick="guncelle('${u.id}', 'rol', 'Standart')">Standart Yap</button>`;
+
+                div.innerHTML += `
+                <div class="user-card ${u.durum === 'Pasif' ? 'pasif' : ''}">
+                    <div class="user-header">
+                        <h3>${u.kullaniciAdi} <small style="color:#aaa;">(${u.rol})</small></h3>
+                        <span style="color:${u.durum === 'Aktif' ? '#00cc66' : '#ff4d4d'}; font-weight:bold; font-size:12px;">${u.durum}</span>
+                    </div>
+                    <div class="islem-grubu">${btnDurum} ${btnRol}</div>
+                </div>`;
+            });
+        }
+
+        // Prim Çizimi
+        function cizPrimler(kullanicilar) {
+            const div = document.getElementById('listePrimler');
+            div.innerHTML = "";
+            kullanicilar.forEach(u => {
+                div.innerHTML += `
+                <div class="user-card">
+                    <div class="user-header">
+                        <h3>${u.kullaniciAdi}</h3>
+                        <span style="color:#00d2ff; font-weight:bold;">Mevcut: %${u.primYuzdesi}</span>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <input type="number" id="primInput_${u.id}" value="${u.primYuzdesi}" style="margin:0;">
+                        <button class="btn-kucuk btn-mavi" onclick="primKaydet('${u.id}')">Güncelle</button>
+                    </div>
+                </div>`;
+            });
+        }
+
+        // Performans Çizimi (Yapay Zeka Destekli Metin)
+        function cizPerformans(kullanicilar, performansVerisi) {
+            const div = document.getElementById('listePerformans');
+            div.innerHTML = "";
+            kullanicilar.forEach(u => {
+                const perf = performansVerisi[u.kullaniciAdi];
+                let aiMetni = "";
+
+                // Basit ve etkili bir değerlendirme algoritması
+                if(perf.satisSayisi === 0) {
+                    aiMetni = "Henüz sistemde tamamlanmış bir satışı bulunmuyor.";
+                } else if(perf.kar > 10000) {
+                    aiMetni = "🔥 Harika performans! Şirkete yüksek kâr getiren yıldız personel.";
+                } else if(perf.kar > 3000) {
+                    aiMetni = "✅ İstikrarlı ve güvenilir. Kâr marjı gayet iyi.";
+                } else if(perf.kar > 0) {
+                    aiMetni = "⚠️ Gelişime açık. Satışları var ancak daha kârlı ürünlere odaklanmalı.";
+                } else {
+                    aiMetni = "🛑 Zararına veya sıfır kârla satış yapılmış. İncelenmesi tavsiye edilir.";
+                }
+
+                div.innerHTML += `
+                <div class="user-card">
+                    <h3>${u.kullaniciAdi} <small style="color:#aaa;">(${perf.satisSayisi} Satış)</small></h3>
+                    <div style="display:flex; justify-content:space-between; font-size:14px; margin-top:5px;">
+                        <span>Toplam Ciro: <strong>${perf.ciro} TL</strong></span>
+                        <span style="color:#00cc66;">Net Kâr: <strong>${perf.kar} TL</strong></span>
+                    </div>
+                    <div class="ai-kutu">🤖 <b>AI Analizi:</b> ${aiMetni}</div>
+                </div>`;
+            });
+        }
+
+        // Genel Güncelleme Fonksiyonları
+        window.guncelle = async function(id, alan, deger) {
+            if(confirm(`Kullanıcının ${alan} bilgisini '${deger}' olarak değiştirmek istiyor musunuz?`)) {
+                await updateDoc(doc(db, "Users", id), { [alan]: deger });
+                verileriCek();
+            }
+        }
+
+        window.primKaydet = async function(id) {
+            const yeniPrim = document.getElementById('primInput_' + id).value;
+            if(yeniPrim && yeniPrim >= 0) {
+                await updateDoc(doc(db, "Users", id), { primYuzdesi: Number(yeniPrim) });
+                alert("Prim yüzdesi güncellendi!");
+                verileriCek();
+            }
+        }
+
+        verileriCek();
+    </script>
+</body>
+</html>

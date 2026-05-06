@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detaylı Ürün Alış</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: #121212; color: #fff; padding: 20px; padding-bottom: 40px; }
+        
+        header { display: flex; align-items: center; margin-bottom: 20px; }
+        header button { background: none; color: #00d2ff; border: none; font-size: 16px; cursor: pointer; margin-right: 15px; font-weight: bold; }
+        header h2 { font-size: 20px; }
+
+        /* Sekmeler (Tekli Parça / Notebook) */
+        .tabs { display: flex; background: #2c2c2c; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+        .tab-btn { flex: 1; padding: 12px; background: none; border: none; color: #aaa; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .tab-btn.active { background: #00d2ff; color: #121212; }
+
+        /* Form Elemanları */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 13px; color: #aaa; margin-bottom: 5px; }
+        
+        input[type="text"], input[type="number"], select, textarea {
+            width: 100%; padding: 12px; background: #2c2c2c; border: 1px solid #333; color: #fff; border-radius: 6px; outline: none;
+        }
+        input:focus, select:focus, textarea:focus { border-color: #00d2ff; }
+        
+        /* Kullanıcı adı için özel gri tasarım */
+        #kullaniciGosterge { background: #1a1a1a; color: #888; border-color: #222; cursor: not-allowed; }
+
+        /* Checkbox Tasarımı */
+        .check-kutu { display: flex; align-items: center; background: #1e1e1e; padding: 12px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #333; }
+        .check-kutu input { width: 18px; height: 18px; margin-right: 10px; accent-color: #00d2ff; }
+        .check-kutu.red { border-color: #ff4d4d; }
+        .check-kutu.red input { accent-color: #ff4d4d; }
+
+        #arizaDetayAlani { display: none; margin-top: 10px; }
+
+        .btn-kaydet { width: 100%; padding: 15px; background: #00d2ff; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; margin-top: 15px; cursor: pointer; color: #121212; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <button onclick="window.location.href='dashboard.html'">❮ Geri</button>
+        <h2>Ürün Alış Ekranı</h2>
+    </header>
+
+    <div class="tabs">
+        <button class="tab-btn active" id="btnTekli" onclick="kategoriDegistir('Tekli Parça')">Tekli Parça</button>
+        <button class="tab-btn" id="btnNotebook" onclick="kategoriDegistir('Notebook')">Notebook</button>
+    </div>
+
+    <div class="form-group">
+        <label>İşlemi Yapan (Otomatik)</label>
+        <input type="text" id="kullaniciGosterge" readonly>
+    </div>
+
+    <div class="form-group">
+        <label>Ürün Kategorisi</label>
+        <select id="kategori">
+            </select>
+    </div>
+
+    <div class="form-group">
+        <label>Ürün Adı (Marka / Model)</label>
+        <input type="text" id="urunAdi" placeholder="Örn: MSI GTX 1660 Ti Ventus">
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+            <label>Alış Fiyatı (TL)</label>
+            <input type="number" id="alisFiyati" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label>Yan Masraflar (TL)</label>
+            <input type="number" id="yanMasraf" placeholder="0" value="0">
+        </div>
+    </div>
+
+    <div class="check-kutu">
+        <input type="checkbox" id="kutuluMu">
+        <label for="kutuluMu" style="color: #fff; margin:0;">Ürünün Kutusu Var</label>
+    </div>
+
+    <div class="check-kutu red">
+        <input type="checkbox" id="arizaliMi" onchange="arizaKontrol()">
+        <label for="arizaliMi" style="color: #ff4d4d; margin:0; font-weight:bold;">Ürün Arızalı / Kusurlu</label>
+    </div>
+
+    <div class="form-group" id="arizaDetayAlani">
+        <label style="color: #ff4d4d;">Arızası / Kusuru Nedir?</label>
+        <input type="text" id="arizaDetay" placeholder="Örn: Fan ses yapıyor, çizik var...">
+    </div>
+
+    <div class="form-group">
+        <label>Ürün Detayları (Açıklama)</label>
+        <textarea id="detaylar" rows="3" placeholder="Görsel durumu, ekstra notlar vs. buraya yazılacak..."></textarea>
+    </div>
+
+    <button class="btn-kaydet" id="kaydetBtn">Tüm Bilgilerle Stoka Kaydet</button>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Firebase Ayarları
+        const app = initializeApp({
+            apiKey: "AIzaSyA2BFK8FPamp258Uk8OR3MXvLFWRMZFOxo",
+            authDomain: "sacrytecherp-373b5.firebaseapp.com",
+            projectId: "sacrytecherp-373b5"
+        });
+        const db = getFirestore(app);
+
+        // Kullanıcıyı Çek ve Ekrana Yazdır
+        const aktifKullanici = localStorage.getItem('kullaniciAdi');
+        if(!aktifKullanici) window.location.href = "index.html"; // Güvenlik
+        document.getElementById('kullaniciGosterge').value = aktifKullanici;
+
+        // Kategori Listeleri
+        const katTekli = ["Ekran Kartı", "İşlemci", "Anakart", "RAM", "Kasa", "Güç Kaynağı", "SSD / HDD", "Soğutucu", "Monitör", "Klavye/Mouse", "Diğer"];
+        const katNotebook = ["Oyun Bilgisayarı", "Ofis ve İş Bilgisayarı", "MacBook", "Notebook Yedek Parça"];
+        
+        let seciliTip = "Tekli Parça";
+
+        // Sekme Değiştirme Fonksiyonu
+        window.kategoriDegistir = function(tip) {
+            seciliTip = tip;
+            document.getElementById('btnTekli').className = tip === 'Tekli Parça' ? "tab-btn active" : "tab-btn";
+            document.getElementById('btnNotebook').className = tip === 'Notebook' ? "tab-btn active" : "tab-btn";
+            
+            const selectBox = document.getElementById('kategori');
+            selectBox.innerHTML = "";
+            let eklenecekListe = tip === 'Tekli Parça' ? katTekli : katNotebook;
+            
+            eklenecekListe.forEach(k => {
+                selectBox.innerHTML += `<option value="${k}">${k}</option>`;
+            });
+        }
+        
+        // Sayfa açıldığında varsayılan olarak Tekli Parça kategorilerini yükle
+        kategoriDegistir('Tekli Parça');
+
+        // Arıza Kutusu İşareti Kontrolü
+        window.arizaKontrol = function() {
+            const kutu = document.getElementById('arizaliMi').checked;
+            document.getElementById('arizaDetayAlani').style.display = kutu ? "block" : "none";
+        }
+
+        // Kaydet Butonu İşlemleri
+        document.getElementById('kaydetBtn').addEventListener('click', async () => {
+            const kategori = document.getElementById('kategori').value;
+            const urunAdi = document.getElementById('urunAdi').value.trim();
+            const alisFiyati = document.getElementById('alisFiyati').value;
+            const yanMasraf = document.getElementById('yanMasraf').value;
+            const kutuluMu = document.getElementById('kutuluMu').checked;
+            const arizaliMi = document.getElementById('arizaliMi').checked;
+            const arizaDetay = document.getElementById('arizaDetay').value.trim();
+            const detaylar = document.getElementById('detaylar').value.trim();
+
+            // ZORUNLU ALAN KONTROLLERİ
+            if(!urunAdi || alisFiyati === "" || yanMasraf === "" || !detaylar) {
+                alert("Lütfen Ürün Adı, Fiyat, Masraf ve Detaylar alanlarını boş bırakmayın!");
+                return;
+            }
+            if(arizaliMi && !arizaDetay) {
+                alert("Ürün arızalı işaretlendi! Lütfen arıza detayını yazın.");
+                return;
+            }
+
+            const toplamMaliyet = Number(alisFiyati) + Number(yanMasraf);
+            const btn = document.getElementById('kaydetBtn');
+            btn.innerText = "Sisteme İşleniyor...";
+            btn.disabled = true;
+
+            try {
+                // 1. STOKA KAYDET (Products Tablosu)
+                await addDoc(collection(db, "Products"), {
+                    urunTipi: seciliTip,
+                    kategori: kategori,
+                    urunAdi: urunAdi,
+                    alisFiyati: Number(alisFiyati),
+                    yanMasraf: Number(yanMasraf),
+                    toplamMaliyet: toplamMaliyet,
+                    kutuDurumu: kutuluMu ? "Kutulu" : "Kutusuz",
+                    arizaDurumu: arizaliMi ? "Arızalı" : "Sağlam",
+                    arizaDetayi: arizaliMi ? arizaDetay : "",
+                    detaylar: detaylar,
+                    ekleyen: aktifKullanici,
+                    durum: "Stokta",
+                    tarih: serverTimestamp() // Saniyesi saniyesine Firebase saati
+                });
+
+                // 2. KAYITLARA (LOGS) DETAYLI DÜŞ
+                // Anlık saat/dakika formatı oluşturuyoruz
+                const suAn = new Date();
+                const saat = suAn.toLocaleTimeString('tr-TR'); 
+                
+                const logDetayi = `[Kategori: ${kategori}] ${urunAdi} stoka eklendi. (Fiyat: ${alisFiyati} TL, Masraf: ${yanMasraf} TL). Kutulu: ${kutuluMu ? 'Evet' : 'Hayır'}, Arızalı: ${arizaliMi ? 'Evet' : 'Hayır'}. İşlem Saati: ${saat}`;
+
+                await addDoc(collection(db, "Logs"), {
+                    islemTipi: "Detaylı Ürün Girişi",
+                    detay: logDetayi,
+                    kullanici: aktifKullanici,
+                    tarih: serverTimestamp()
+                });
+
+                alert("Ürün başarıyla stoka eklendi ve kayıtlara işlendi!");
+                window.location.reload(); // Formu sıfırlamak için sayfayı yenile
+
+            } catch (error) {
+                console.error("Hata:", error);
+                alert("Kaydedilirken bir hata oluştu!");
+                btn.innerText = "Tüm Bilgilerle Stoka Kaydet";
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

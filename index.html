@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SacryTech Giriş</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background-color: #121212; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .login-box { background: #1e1e1e; padding: 40px; border-radius: 12px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h1 { color: #00d2ff; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; background: #2c2c2c; border: 1px solid #333; color: #fff; border-radius: 6px; outline: none; }
+        input:focus { border-color: #00d2ff; }
+        button { width: 100%; padding: 12px; background: #00d2ff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: #121212; }
+        #hata { color: #ff4d4d; margin-top: 15px; display: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+   <div class="login-box">
+        <img src="logo.png" alt="SacryTech Logo" style="width: 180px; margin-bottom: 20px; border-radius: 10px;">
+        
+        <input type="text" id="kullaniciAdiInput" placeholder="Kullanıcı Adı" autocomplete="off">
+        <input type="password" id="password" placeholder="Şifre">
+        <button id="loginBtn">Giriş Yap</button>
+        <div id="hata">Hatalı giriş!</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Senin Firebase Ayarların
+        const firebaseConfig = {
+            apiKey: "AIzaSyA2BFK8FPamp258Uk8OR3MXvLFWRMZFOxo",
+            authDomain: "sacrytecherp-373b5.firebaseapp.com",
+            projectId: "sacrytecherp-373b5",
+            storageBucket: "sacrytecherp-373b5.firebasestorage.app",
+            messagingSenderId: "463347376648",
+            appId: "1:463347376648:web:383bc8376ec8ca992b67bd"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const kullaniciAdi = document.getElementById('kullaniciAdiInput').value.trim();
+            const pass = document.getElementById('password').value;
+            const hata = document.getElementById('hata');
+
+            if(!kullaniciAdi || !pass) {
+                hata.innerText = "Boş alan bırakmayın!";
+                hata.style.display = "block";
+                return;
+            }
+
+            // HİLE BURADA: Kullanıcı adının sonuna arka planda sahte e-posta uzantısını ekliyoruz
+            // (Boşlukları silip küçük harfe çeviriyoruz ki hata olmasın)
+            const formatliEmail = kullaniciAdi.toLowerCase().replace(/\s+/g, '') + "@sacrytech.com";
+
+            document.getElementById('loginBtn').innerText = "Giriş Yapılıyor...";
+
+            try {
+                // 1. Oluşturduğumuz sahte e-posta ve şifre ile Firebase'e giriş yap
+                const userCred = await signInWithEmailAndPassword(auth, formatliEmail, pass);
+                
+                // 2. Başarılı olursa Firestore'dan Kullanıcı Adına göre verileri çek
+                const q = query(collection(db, "Users"), where("kullaniciAdi", "==", kullaniciAdi));
+                const querySnapshot = await getDocs(q);
+                
+                if (!querySnapshot.empty) {
+                    const userData = querySnapshot.docs[0].data();
+                    
+                    if(userData.durum === "Pasif") {
+                        hata.innerText = "Hesabınız askıya alınmış!"; 
+                        hata.style.display = "block";
+                        document.getElementById('loginBtn').innerText = "Giriş Yap";
+                        return;
+                    }
+
+                    // Rolleri ve bilgileri tarayıcıya kaydet
+                    localStorage.setItem('kullaniciRolu', userData.rol);
+                    localStorage.setItem('kullaniciAdi', userData.kullaniciAdi);
+                    localStorage.setItem('kullaniciID', querySnapshot.docs[0].id);
+                    
+                    // Ana menüye yönlendir
+                    window.location.href = "dashboard.html";
+                } else {
+                    hata.innerText = "Kullanıcı veritabanında bulunamadı!";
+                    hata.style.display = "block";
+                    document.getElementById('loginBtn').innerText = "Giriş Yap";
+                }
+            } catch(e) {
+                console.error(e);
+                hata.innerText = "Kullanıcı adı veya şifre yanlış!";
+                hata.style.display = "block";
+                document.getElementById('loginBtn').innerText = "Giriş Yap";
+            }
+        });
+    </script>
+</body>
+</html>

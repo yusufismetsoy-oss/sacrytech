@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geçmiş Satışlar</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: #121212; color: #fff; padding: 20px; }
+        .card { background: #1e1e1e; padding: 15px; margin-bottom: 15px; border-left: 4px solid #00d2ff; border-radius: 6px; }
+        button { background: #ff4d4d; color: #fff; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <button onclick="window.location.href='dashboard.html'" style="background:none; color:#00d2ff; margin-bottom:20px; border:none; cursor:pointer; font-size:16px;">❮ Geri</button>
+    <h2>Geçmiş Satışlar</h2><p style="color:#888; font-size:14px;">Tamamlanmış satış işlemleri listelenir.</p><br>
+    
+    <div id="liste">Yükleniyor...</div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, query, orderBy, getDocs, updateDoc, doc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Firebase Ayarların
+        const app = initializeApp({ 
+            apiKey: "AIzaSyA2BFK8FPamp258Uk8OR3MXvLFWRMZFOxo", 
+            projectId: "sacrytecherp-373b5" 
+        });
+        const db = getFirestore(app);
+        const user = localStorage.getItem('kullaniciAdi');
+
+        async function yukle() {
+            // Sadece tarihe göre sondan başa sıralıyoruz (Hata verdiren kısmı kaldırdık)
+            const q = query(collection(db, "Sales"), orderBy("tarih", "desc"));
+            const snap = await getDocs(q);
+            const div = document.getElementById('liste');
+            div.innerHTML = "";
+
+            let aktifSatisSayisi = 0;
+
+            snap.forEach(d => {
+                const s = d.data();
+                
+                // HİLE BURADA: Eğer ürün iade edildiyse, bu döngüyü atla (ekrana yazdırma)
+                if(s.iadeDurumu === true) return; 
+
+                aktifSatisSayisi++;
+                const tarih = s.tarih ? s.tarih.toDate().toLocaleString('tr-TR') : "Tarih Yok";
+                let urunIsimleri = Array.isArray(s.urunler) ? s.urunler.join(', ') : s.urunler;
+                
+                div.innerHTML += `
+                <div class="card">
+                    <h3>${urunIsimleri}</h3>
+                    <p>Satış Fiyatı: <strong style="color:#00d2ff;">${s.satisFiyati} TL</strong> | Kâr: ${s.kar} TL</p>
+                    <small style="color:#aaa">Satan: ${s.satanKullanici} | ${tarih}</small><br>
+                    <button onclick="iadeIslemi('${d.id}', '${urunIsimleri}')">Ürünü İade Al</button>
+                </div>`;
+            });
+
+            if(aktifSatisSayisi === 0) {
+                div.innerHTML = "<p style='color:#888;'>Geçmişte yapılmış geçerli bir satış bulunamadı.</p>";
+            }
+        }
+
+        window.iadeIslemi = async function(satisID, urunAdlari) {
+            const sebep = prompt(`"${urunAdlari}" ürünleri için iade sebebi nedir?`);
+            if(sebep) {
+                // 1. Satışı "İade Edildi" olarak işaretle
+                await updateDoc(doc(db, "Sales", satisID), { 
+                    iadeDurumu: true, 
+                    iadeSebebi: sebep,
+                    iadeTarihi: serverTimestamp() 
+                });
+
+                // 2. Loglara ekle
+                await addDoc(collection(db, "Logs"), { 
+                    islemTipi: "İade Alındı", 
+                    detay: `${urunAdlari} iade alındı. Sebep: ${sebep}`, 
+                    kullanici: user, 
+                    tarih: serverTimestamp() 
+                });
+
+                alert("Ürün satış listesinden çıkarıldı ve İade Bölümüne gönderildi.");
+                location.reload(); // Sayfayı yenile, iade edilen anında kaybolacak!
+            }
+        }
+        yukle();
+    </script>
+</body>
+</html>

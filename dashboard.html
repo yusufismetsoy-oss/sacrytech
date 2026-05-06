@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SacryTech - Menü</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: #121212; color: #fff; display: flex; flex-direction: column; height: 100vh; }
+        header { background: #1e1e1e; padding: 20px; display: flex; justify-content: space-between; border-bottom: 2px solid #00d2ff; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 20px; }
+        .btn-menu { background: #2c2c2c; padding: 20px; text-align: center; border-radius: 10px; cursor: pointer; text-decoration: none; color: #fff; font-weight: bold; }
+        .admin { display: none; border: 1px solid #00d2ff; }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="logo.png" alt="SacryTech" style="height: 35px; border-radius: 5px;">
+            <h3 id="isim">Yükleniyor...</h3>
+        </div>
+        <button onclick="localStorage.clear(); window.location.href='index.html'" style="background:#ff4d4d; border:none; padding:8px 15px; border-radius:5px; color:#fff; cursor:pointer; font-weight:bold;">Çıkış</button>
+    </header>
+    <div class="grid">
+       <a href="alis.html" class="btn-menu">📦 Alış</a>
+        <a href="stok.html" class="btn-menu">📊 Stok & Satış</a>
+        <a href="gecmis.html" class="btn-menu">📜 Geçmiş</a>
+        <a href="iade.html" class="btn-menu">🔄 İade</a>
+        <a href="bakiye.html" class="btn-menu">💰 Bakiyem</a>
+        <a href="kaldirilanlar.html" class="btn-menu admin">🗑️ Kaldırılanlar</a>
+        <a href="kullanicilar.html" class="btn-menu admin">👥 Kullanıcılar</a>
+        <a href="finans.html" class="btn-menu admin">💵 Finans</a>
+        <a href="kayitlar.html" class="btn-menu admin">📋 Kayıtlar</a>
+    </div>
+    <script>
+        if(!localStorage.getItem('kullaniciAdi')) window.location.href="index.html";
+        document.getElementById('isim').innerText = "Merhaba, " + localStorage.getItem('kullaniciAdi');
+        if(localStorage.getItem('kullaniciRolu') === "Yönetici") {
+            document.querySelectorAll('.admin').forEach(el => el.style.display = "block");
+        }
+    </script>
+</body>
+</html>

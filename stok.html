@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stok ve Satış - Güncel</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: #121212; color: #fff; padding: 20px; display: flex; flex-direction: column; height: 100vh; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .back-btn { background: none; color: #00d2ff; border: none; font-size: 16px; cursor: pointer; font-weight: bold; }
+        .filtre-alani { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; background: #1e1e1e; padding: 15px; border-radius: 8px; }
+        input, select { padding: 10px; background: #2c2c2c; border: 1px solid #333; color: #fff; border-radius: 6px; outline: none; width: 100%; }
+        .layout { display: flex; gap: 20px; flex: 1; overflow: hidden; }
+        .urun-listesi { flex: 2; overflow-y: auto; }
+        .card { background: #1e1e1e; padding: 15px; margin-bottom: 10px; border-left: 4px solid #00d2ff; border-radius: 6px; cursor: pointer; }
+        .btn-ekle { background: #00d2ff; color: #121212; border: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .sepet-alani { flex: 1; background: #1a1a1a; padding: 15px; border-radius: 8px; border: 1px solid #333; display: flex; flex-direction: column; }
+        .sepet-listesi { flex: 1; overflow-y: auto; margin-bottom: 15px; }
+        .sepet-item { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .btn-sat { width: 100%; background: #00d2ff; color: #121212; border: none; padding: 15px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #1e1e1e; padding: 25px; border-radius: 10px; width: 90%; max-width: 400px; }
+        .btn-kaldir { width: 100%; background: #ff4d4d; color: #fff; border: none; padding: 10px; border-radius: 6px; margin-top: 15px; display: none; cursor: pointer; }
+        @media (max-width: 768px) { .layout { flex-direction: column; } .filtre-alani { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <header>
+        <button class="back-btn" onclick="window.location.href='dashboard.html'">❮ Geri</button>
+        <h2>Stok ve Satış Panel</h2>
+    </header>
+
+    <div class="filtre-alani">
+        <input type="text" id="aramaKutusu" placeholder="Ürün Ara..." oninput="listeyiCiz()">
+        <select id="kategoriFiltre" onchange="listeyiCiz()">
+            <option value="Tümü">Tüm Kategoriler</option>
+            <option value="Tekli Parça">Tekli Parça</option>
+            <option value="Notebook">Notebook</option>
+        </select>
+        <select id="siralama" onchange="listeyiCiz()">
+            <option value="yeni">En Yeni</option>
+            <option value="pahali">En Pahalı</option>
+            <option value="ucuz">En Ucuz</option>
+        </select>
+    </div>
+
+    <div class="layout">
+        <div class="urun-listesi" id="urunListesi">Yükleniyor...</div>
+        <div class="sepet-alani">
+            <h3 style="color:#00d2ff; margin-bottom:15px;">🛒 Sepet</h3>
+            <div class="sepet-listesi" id="sepetListesi"></div>
+            <div style="background:#2c2c2c; padding:10px; border-radius:6px;">
+                <p>Maliyet: <strong id="toplamMaliyet">0 TL</strong></p>
+                <p style="font-size:12px; color:#aaa;" id="tavsiyeFiyat">Tavsiye Satış: 0 TL</p>
+                <input type="number" id="satisFiyati" placeholder="Satış Tutarı" style="margin-top:10px;">
+                <button class="btn-sat" onclick="satisYap()">Satışı Bitir</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="detayModal">
+        <div class="modal-content">
+            <h3 id="mUrunAdi" style="color:#00d2ff; margin-bottom:10px;"></h3>
+            <div id="mDetaylar" style="font-size:14px; line-height:1.6;"></div>
+            <button class="btn-kaldir" id="btnKaldir" onclick="urunuKaldir()">Stoktan Kaldır</button>
+            <button onclick="document.getElementById('detayModal').style.display='none'" style="background:none; color:#aaa; border:none; width:100%; margin-top:15px; cursor:pointer;">Kapat</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, query, where, getDocs, updateDoc, doc, addDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const app = initializeApp({ apiKey: "AIzaSyA2BFK8FPamp258Uk8OR3MXvLFWRMZFOxo", projectId: "sacrytecherp-373b5" });
+        const db = getFirestore(app);
+        const user = localStorage.getItem('kullaniciAdi');
+        const role = localStorage.getItem('kullaniciRolu');
+        const userID = localStorage.getItem('kullaniciID');
+
+        let tumUrunler = [];
+        let sepet = [];
+        let seciliUrunID = "";
+
+        async function urunleriGetir() {
+            const q = query(collection(db, "Products"), where("durum", "==", "Stokta"));
+            const snap = await getDocs(q);
+            tumUrunler = [];
+            snap.forEach(d => { let data = d.data(); data.id = d.id; data.zaman = data.tarih ? data.tarih.toMillis() : 0; tumUrunler.push(data); });
+            listeyiCiz();
+        }
+
+        window.listeyiCiz = function() {
+            const ara = document.getElementById('aramaKutusu').value.toLowerCase();
+            const kat = document.getElementById('kategoriFiltre').value;
+            const sir = document.getElementById('siralama').value;
+
+            let f = tumUrunler.filter(u => (u.urunAdi.toLowerCase().includes(ara) || u.seriNo.toLowerCase().includes(ara)) && (kat === "Tümü" || u.urunTipi === kat));
+            
+            if(sir === "yeni") f.sort((a,b) => b.zaman - a.zaman);
+            if(sir === "pahali") f.sort((a,b) => b.toplamMaliyet - a.toplamMaliyet);
+            if(sir === "ucuz") f.sort((a,b) => a.toplamMaliyet - b.toplamMaliyet);
+
+            const div = document.getElementById('urunListesi');
+            div.innerHTML = "";
+            f.forEach(u => {
+                const sepette = sepet.some(s => s.id === u.id);
+                div.innerHTML += `
+                <div class="card" ondblclick="detayAc('${u.id}')">
+                    <div style="display:flex; justify-content:space-between;">
+                        <strong>${u.urunAdi}</strong>
+                        ${sepette ? '<span style="color:#888;">Eklendi</span>' : `<button class="btn-ekle" onclick="sepeteEkle('${u.id}')">Ekle</button>`}
+                    </div>
+                    <p style="font-size:12px; color:#aaa; margin-top:5px;">Maliyet: ${u.toplamMaliyet} TL | SN: ${u.seriNo}</p>
+                </div>`;
+            });
+        }
+
+        window.sepeteEkle = function(id) {
+            const u = tumUrunler.find(x => x.id === id);
+            if(u && !sepet.some(s => s.id === id)) { sepet.push(u); sepetiCiz(); listeyiCiz(); }
+        }
+
+        function sepetiCiz() {
+            const div = document.getElementById('sepetListesi');
+            let m = 0; div.innerHTML = "";
+            sepet.forEach(s => {
+                m += s.toplamMaliyet;
+                div.innerHTML += `<div class="sepet-item"><span>${s.urunAdi}</span><span onclick="sepetCikar('${s.id}')" style="color:#ff4d4d; cursor:pointer;">X</span></div>`;
+            });
+            document.getElementById('toplamMaliyet').innerText = m + " TL";
+            document.getElementById('tavsiyeFiyat').innerText = "Tavsiye Satış: " + Math.round(m * 1.25) + " TL";
+        }
+
+        window.sepetCikar = function(id) { sepet = sepet.filter(s => s.id !== id); sepetiCiz(); listeyiCiz(); }
+
+        window.detayAc = function(id) {
+            const u = tumUrunler.find(x => x.id === id);
+            seciliUrunID = id;
+            document.getElementById('mUrunAdi').innerText = u.urunAdi;
+            document.getElementById('mDetaylar').innerHTML = `SN: ${u.seriNo}<br>Kategori: ${u.kategori}<br>Durum: ${u.arizaDurumu}<br>Maliyet: ${u.toplamMaliyet} TL<br><br>${u.detaylar}`;
+            if(role === "Yönetici") document.getElementById('btnKaldir').style.display = "block";
+            document.getElementById('detayModal').style.display = "flex";
+        }
+
+        window.urunuKaldir = async function() {
+            const sebep = prompt("Kaldırma sebebi:");
+            if(sebep) {
+                await updateDoc(doc(db, "Products", seciliUrunID), { durum: "Kaldırıldı", sebep });
+                alert("Kaldırıldı."); location.reload();
+            }
+        }
+
+        window.satisYap = async function() {
+            const tutar = Number(document.getElementById('satisFiyati').value);
+            if(sepet.length === 0 || !tutar) return alert("Hata!");
+            
+            const maliyet = sepet.reduce((a, b) => a + b.toplamMaliyet, 0);
+            const kar = tutar - maliyet;
+
+            try {
+                // 1. Satış Kaydı (ID'ler ekleniyor)
+                await addDoc(collection(db, "Sales"), {
+                    urunIds: sepet.map(s => s.id), // İade için gereken kimlikler
+                    urunler: sepet.map(s => s.urunAdi),
+                    toplamMaliyet: maliyet,
+                    satisFiyati: tutar,
+                    kar: kar,
+                    satanKullanici: user,
+                    tarih: serverTimestamp()
+                });
+
+                // 2. Ürünleri Kilitle
+                for(let s of sepet) { await updateDoc(doc(db, "Products", s.id), { durum: "Satıldı" }); }
+
+                // 3. Prim
+                const uSnap = await getDoc(doc(db, "Users", userID));
+                if(kar > 0) {
+                    const p = (kar * uSnap.data().primYuzdesi) / 100;
+                    await updateDoc(doc(db, "Users", userID), { bakiye: uSnap.data().bakiye + p });
+                }
+
+                alert("Satış tamam!"); location.reload();
+            } catch(e) { console.error(e); }
+        }
+
+        urunleriGetir();
+    </script>
+</body>
+</html>

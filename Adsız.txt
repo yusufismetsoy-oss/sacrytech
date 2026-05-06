@@ -1,0 +1,83 @@
+
+Senle bir program yapacaz bu program ne için yapılacak şöyle açıklıyayım seninde bir fikrin bulunsun 
+Ben ikinci el bilgisayar , bilgisayar donanım parçası ,toplama kasalar ,yedek parçalar ,notbooklar ve devamı şekilde genel olarak bilgisayar üzerine 2.el ve sıfır al-sat yapacağım ve herşeyin kayıt altında olmasını istediğimden böyle bir program istiyorum uygulamaya hem mobil üzerinden hem bilgisayar üzerinden giriş giriş yapacağım ve yaptığım işlemler anlık olarak gözükecek bir cihazdan girdiğimde başka bir cihazdan da görebilecem birkaç arkadaşımı daha ekleyeceğim gerisini zaten programı sana anlatırken unuttum sen program mantığını anlasan yeter
+
+Giriş ekranı:
+Burada sadece kullanıcı adı ve şifre soracak
+Başarılı giriş olduğunda ana menüye atacak
+Ve iki farklı ana menü olacak tabi bu girilen kullanıcı adı ve şifresine göre değişiklik gösterecek eğer bir yönetici yapmışsa farklı bir menü standart kullanıcı giriş yaptıysa farklı bir menü
+
+Standart kullanıcı menüsü:
+Bu menüde sadece alış ,stok,geçmiş satış ,iade ve bakiyem kısımları olacak
+
+Yönetici menüsü:
+Bu menüde de alış ,stok,geçmiş satış ,iade ,bakiyem,kaldırılan ürünler  ve ekstra olarak kullanıcılar ,finans ve kayıtlar
+Olacak 
+
+Şimdi bu bahsettiğim şeyleri açıklayayım nasıl çalışacak neler olacak 
+
+Alış :
+Bu kısımda alınan ürünlerin bilgi giriş ekranı olacak şu şekilde bir sistem var aklımda 
+
+2 şekilde olacak bir tekli parça yeri diğeri notbook yeri 
+
+Tekli parça giriş yeri :
+En başta ürünün kimin aldığı yazacak o da hangi kullanıcı giriş yapmışsa o kullanıcı adı yazacak ve değiştirilemeyecek sonra ürün katogorisini girecek bu katagori liste şeklinde olabilir ve seçilebilr olsun oraya aklına bilgisayarla alakalı satılabilir ve alınabilir ne geliyosa doldur 
+Sonra ürünün adını , alış fiyatını ,kutulu veya kutusuz olduğunu (işaretlenebilir şekilde )  ,yan masrafları ,arızalı olup olmadığı buda işaretlenebilir olsun ve işaretlenirse arızasının ne olduğunu sorsun bunlar kısa kısa yazılsın 
+Ürün detayları bu kısım uzun yazılabilir
+
+Bunların hiç biri boş bırakılmaz olacak
+Birde kaydet butonu olacak  kaydet butonuna basıldığı anda bu ürün artık stok kısmında görünebilir olacak ve kayıtlar kısmında kimin hangi tarihte hangi saat dakika saniyede aldığı detaylıca otomatik kaydedilecek 
+Bu iki tür kullanıcı (yönetici ve standart) için geçerli
+
+Stok:
+Burda aldığımız ürünler gözükecek üst kısımda bir arama kısmı olacak katagoriye göre aratma yapabilecek fiyatları yüksekten düşüğe sıralayabilecek veya tam tersi 
+Giriş tarihine göre sıralayabilecek yeniden eskiye eskiden yeniye şeklinde olacak 
+Listeden bir ürüne çift tıklandığında alış kısmındaki bilgiler görünecek 
+Ürünlerin yanında ekle tuşu olacak eklenen ürün veya ürünler sepete gidecek 
+Bir sepet mantığı olacak toplu satış yapılabilecek 
+Sepet kısmında ürün veya ürünlerin alış fiyatının toplamı yazacak sat tuşuna bastığında satılan fiyat soracak uygulama bir yandan da satış fiyatı tavsiyesinde bulunacak 
+
+Herşey tamamlandıktan sonra ürünü kimin sattığını kaydedecek ve geçmiş satışta gözükecek
+
+Yöneticilere özel kısım
+Ürünlere çift tıklayınca alış kısmındaki bilgiler çıkacak demiştim ya o bilgilerin yanında kaldır butonu olacak bu  butona basınca uygulama soracak neden kaldırıyorsunuz oraya sebebini girecek ve bu direk açıklama ile beraber kaldırılan ürünlere gidecek 
+
+
+Geçmiş Satış:
+Burada geçmişte sattığımız ürünler gözükecek satışta hata yapılmışsa burda düzeltilebilecek  ve geçmişte satılan bir ürün iade edilir ise o ürünü seçerek ilk önce iade nedenini sonra da iade girilebilecek 
+
+
+İade:
+Bir ürün iade alınmışsa o ürüne çift tıklayınca ürünün iade nedenini görebilecez ve eğerki kullanıcı onaylar ise stok kısmına geri yüklenecek 
+
+Bakiyem:
+
+Bu kısımda yöneticiler ve standart kullanıcılar farklı ekranlar görecek 
+
+Bu bi prim sistemi olacak çalışma sistemi:
+Kullanıcıya bir prim yüzdesi tanımlanacak (örneğin %25 )mesela a kullanıcısı b diye bir ürünü 1000 tl ye aldı satış kısmından 2000 tl ye sattı kârın 500 u kasaya 500 ü kullanıcının bakiyesine girilecek  standart kullanıcılar sadece kendi bakiyelerini görebilecekler ve üzerinde değişiklik yapamayacaklar ya sistem yada yöneticiler değiştirilecek
+
+Yöneticiler :
+Herkesin bakiyesini görüp üstünde oynama yapabilecek ama oynama yaptıktan sonra sistem soracak neden oynama yaptın diye oda açıklamasını yazacak ( örneğin bakiyesinden para aldı) sonra kaydete bastığında direk kayıtlara düşecek 
+
+Kullanıcılar:
+Bu kısım sadece yöneticilere özel bu yerde 4 özelliğimiz olacak 
+
+Yeni üye kaydı: sisteme yeni kişiler geldiğinde onlara kullanıcı adın ve şifre oluşturacağımız bölüm bizim oluşturduğumuz kullanıcı hesapları hariç kimse sisteme giremeyecek
+
+Roller: burda tüm kullanıcılar gözükecek yönetici grupu artık yükselmesi gerekiyor dediği kişilere yöneticilik verebilecek yada tam tersi artık sistemde olmasın dediği kişilerin girişini kapatabilecek(ama kişinin hesabı kapansa bile eskiden yaptıkları kayıtlar gitmeyecek ) ama hala kullanıcılarda pasif olarak gözükecek istenirse geri açılabilecek 
+
+
+Performans : yöneticiler burda tüm kullanıcıların satıl performansına göre değerlendirmeye alınacak yapay zeka destekli olacak 
+
+Primler: burda tüm kullanıcıların prim seviyelerini ayarlayabileceğimiz bir alanımız olacak 
+
+Finans:bu kısım bizim kasamızdaki paramızı gösterecek 
+
+Kayıtlar:
+
+Burası en önemli yerimiz yapılan her işlem her bir giriş çıkış burada not edilecek dakikası dakikasına her şey göz önünde olacak  
+
+
+Eklemek istediğin eksik gördüğün birşey varmı

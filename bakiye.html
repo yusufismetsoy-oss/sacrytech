@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bakiye Yönetimi - SacryTech</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: #121212; color: #fff; padding: 20px; }
+        header { margin-bottom: 25px; }
+        .back-btn { background: none; color: #00d2ff; border: none; font-size: 16px; cursor: pointer; font-weight: bold; }
+        
+        /* Kişisel Bakiye Kartı */
+        .ozet-kart { 
+            background: linear-gradient(135deg, #00d2ff 0%, #00a8cc 100%); 
+            color: #121212; padding: 30px; border-radius: 12px; 
+            text-align: center; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,210,255,0.2);
+        }
+        .ozet-kart h3 { font-size: 16px; opacity: 0.8; margin-bottom: 10px; }
+        .ozet-kart h1 { font-size: 36px; font-weight: 800; }
+
+        /* Yönetici Paneli */
+        #yoneticiPaneli { display: none; }
+        .liste-baslik { color: #00d2ff; font-size: 18px; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        
+        .personel-kart { 
+            background: #1e1e1e; padding: 15px; border-radius: 8px; 
+            margin-bottom: 12px; border-left: 4px solid #00d2ff;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .personel-bilgi strong { display: block; font-size: 16px; margin-bottom: 4px; }
+        .personel-bilgi span { color: #00d2ff; font-weight: bold; }
+
+        .islem-butonlari { display: flex; gap: 8px; }
+        .btn-islem { 
+            border: none; padding: 10px 14px; border-radius: 6px; 
+            font-weight: bold; cursor: pointer; font-size: 13px; transition: 0.2s;
+        }
+        .btn-ekle { background: #00d2ff; color: #121212; }
+        .btn-ekle:hover { background: #00b8e6; }
+        .btn-ode { background: #ff4d4d; color: #fff; }
+        .btn-ode:hover { background: #e63939; }
+
+        @media (max-width: 600px) {
+            .personel-kart { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .islem-butonlari { width: 100%; }
+            .btn-islem { flex: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <button class="back-btn" onclick="window.location.href='dashboard.html'">❮ Geri Dön</button>
+    </header>
+
+    <div class="ozet-kart">
+        <h3>Güncel Prim Bakiyem</h3>
+        <h1 id="kendiBakiyem">0.00 TL</h1>
+    </div>
+
+    <div id="yoneticiPaneli">
+        <h2 class="liste-baslik">Personel Bakiye Yönetimi</h2>
+        <div id="personelListesi">Yükleniyor...</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyA2BFK8FPamp258Uk8OR3MXvLFWRMZFOxo",
+            projectId: "sacrytecherp-373b5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const userID = localStorage.getItem('kullaniciID');
+        const userRole = localStorage.getItem('kullaniciRolu');
+        const userName = localStorage.getItem('kullaniciAdi');
+
+        async function verileriYukle() {
+            try {
+                // 1. Giriş yapan kişinin bakiyesini güncelle
+                const userSnap = await getDoc(doc(db, "Users", userID));
+                if (userSnap.exists()) {
+                    const bakiye = userSnap.data().bakiye || 0;
+                    document.getElementById('kendiBakiyem').innerText = bakiye.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + " TL";
+                }
+
+                // 2. Yöneticiyse tüm listeyi getir
+                if (userRole === "Yönetici") {
+                    document.getElementById('yoneticiPaneli').style.display = "block";
+                    const querySnapshot = await getDocs(collection(db, "Users"));
+                    const listeDiv = document.getElementById('personelListesi');
+                    listeDiv.innerHTML = "";
+
+                    querySnapshot.forEach((kullaniciDoc) => {
+                        const veri = kullaniciDoc.data();
+                        const kid = kullaniciDoc.id;
+                        const kbakiye = veri.bakiye || 0;
+
+                        listeDiv.innerHTML += `
+                            <div class="personel-kart">
+                                <div class="personel-bilgi">
+                                    <strong>${veri.kullaniciAdi}</strong>
+                                    <span>${kbakiye.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</span>
+                                </div>
+                                <div class="islem-butonlari">
+                                    <button class="btn-islem btn-ekle" onclick="bakiyeIslemi('${kid}', '${veri.kullaniciAdi}', ${kbakiye}, 'ekle')">Bakiye Ekle</button>
+                                    <button class="btn-islem btn-ode" onclick="bakiyeIslemi('${kid}', '${veri.kullaniciAdi}', ${kbakiye}, 'ode')">Ödeme Yap</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (error) {
+                console.error("Veri yükleme hatası:", error);
+            }
+        }
+
+        // Bakiye Ekleme veya Ödeme Yapma Fonksiyonu
+        window.bakiyeIslemi = async function(targetID, targetName, mevcutBakiye, tip) {
+            const islemMetni = tip === 'ekle' ? "eklenecek" : "düşülecek (ödenecek)";
+            const miktar = prompt(`${targetName} hesabına ${islemMetni} tutarı girin:`);
+            
+            if (miktar && !isNaN(miktar) && miktar > 0) {
+                const sebep = prompt("Bu işlemin nedeni nedir? (Kayıtlara işlenecektir):");
+                
+                if (sebep) {
+                    const miktarSayi = Number(miktar);
+                    const yeniBakiye = tip === 'ekle' ? mevcutBakiye + miktarSayi : mevcutBakiye - miktarSayi;
+                    
+                    try {
+                        // Veritabanını güncelle
+                        await updateDoc(doc(db, "Users", targetID), { bakiye: yeniBakiye });
+
+                        // Log kaydı oluştur
+                        const logTipi = tip === 'ekle' ? "Bakiye Artışı" : "Bakiye Ödemesi";
+                        await addDoc(collection(db, "Logs"), {
+                            islemTipi: logTipi,
+                            detay: `${targetName} kullanıcısına ${miktarSayi} TL ${tip === 'ekle' ? 'eklendi' : 'ödendi'}. Sebep: ${sebep}`,
+                            kullanici: userName,
+                            tarih: serverTimestamp()
+                        });
+
+                        alert("İşlem başarıyla tamamlandı.");
+                        verileriYukle();
+                    } catch (e) {
+                        alert("Hata oluştu, işlem tamamlanamadı.");
+                    }
+                } else {
+                    alert("Sebep belirtilmediği için işlem iptal edildi.");
+                }
+            }
+        }
+
+        verileriYukle();
+    </script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finans Merkezi - SacryTech</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: #121212; color: #fff; padding: 20px; padding-bottom: 40px; }
+        header { margin-bottom: 25px; }
+        .back-btn { background: none; color: #00d2ff; border: none; font-size: 16px; cursor: pointer; font-weight: bold; }
+
+        /* Dashboard Kartları */
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        .fin-kart { background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #333; text-align: center; }
+        .fin-kart.full { grid-column: span 2; background: linear-gradient(135deg, #00d2ff 0%, #0072ff 100%); color: #121212; }
+        .fin-kart h3 { font-size: 12px; text-transform: uppercase; opacity: 0.8; margin-bottom: 8px; letter-spacing: 1px; }
+        .fin-kart p { font-size: 20px; font-weight: 800; }
+        .fin-kart.full p { font-size: 32px; }
+
+        /* Gider Giriş Alanı */
+        .islem-alani { background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #333; margin-top: 20px; }
+        h4 { margin-bottom: 15px; color: #00d2ff; }
+        input { width: 100%; padding: 12px; margin-bottom: 12px; background: #2c2c2c; border: 1px solid #333; color: #fff; border-radius: 6px; outline: none; }
+        input:focus { border-color: #ff4d4d; }
+        .btn-gider { width: 100%; padding: 15px; background: #ff4d4d; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; }
+
+        /* Ekstra: Kâr Marjı Göstergesi */
+        .progress-container { margin-top: 15px; background: #2c2c2c; height: 10px; border-radius: 5px; overflow: hidden; }
+        .progress-bar { height: 100%; background: #00d2ff; width: 0%; transition: 1s; }
+
+        @media (min-width: 768px) {
+            .dashboard-grid { grid-template-columns: repeat(4, 1fr); }
+            .fin-kart.full { grid-column: span 2; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <button class="back-btn" onclick="window.location.href='dashboard.html'">❮ Geri Dön</button>
+        <h2 style="margin-top:10px;">Finansal Özet</h2>
+    </header>
+
+    <div class="dashboard-grid">
+        <div class="fin-kart full">
+            <h3>💰 Net Kasa (Eldeki Nakit)</h3>
+            <p id="kasaNakit">0.00 TL</p>
+            <div style="font-size:11px; margin-top:5px; opacity:0.7;">(Ciro - Giderler - Ödemeler)</div>
+        </div>
+
+        <div class="fin-kart">
+            <h3>📈 Toplam Ciro</h3>
+            <p id="toplamCiro" style="color:#00d2ff;">0 TL</p>
+        </div>
+
+        <div class="fin-kart">
+            <h3>🚀 Toplam Kâr</h3>
+            <p id="toplamKar" style="color:#00cc66;">0 TL</p>
+        </div>
+
+        <div class="fin-kart">
+            <h3>📅 Aylık Kâr</h3>
+            <p id="aylikKar">0 TL</p>
+        </div>
+
+        <div class="fin-kart">
+            <h3>📉 Toplam Gider</h3>
+            <p id="toplamGider" style="color:#ff4d4d;">0 TL</p>
+        </div>
+    </div>
+
+    <div class="fin-kart" style="text-align:left;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0;">🎯 Ortalama Kâr Oranı</h3>
+            <span id="karYuzdesi" style="font-weight:bold; color:#00d2ff;">%0</span>
+        </div>
+        <div class="progress-container">
+            <div class="progress-bar" id="karBar"></div>
+        </div>
+    </div>
+
+    <div class="islem-alani">
+        <h4>💸 Yeni Gider / Masraf Girişi</h4>
+        <input type="text" id="giderSebep" placeholder="Gider Nedeni (Kargo, Kira, Yemek vb.)">
+        <input type="number" id="giderTutar" placeholder="Tutar (TL)">
+        <button class="btn-gider" id="giderBtn">Kasadan Ödeme Yap</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA2BFK8FPamp258Uk8OR3MXvLFWRMZFOxo",
+            projectId: "sacrytecherp-373b5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const userName = localStorage.getItem('kullaniciAdi');
+
+        async function maliVerileriHesapla() {
+            try {
+                // 1. Satış Verilerini Çek (Ciro ve Kâr)
+                const salesSnap = await getDocs(collection(db, "Sales"));
+                let ciro = 0;
+                let kar = 0;
+                let aylikKar = 0;
+                let maliyet = 0;
+
+                const suAn = new Date();
+                const buAy = suAn.getMonth();
+                const buYil = suAn.getFullYear();
+
+                salesSnap.forEach(doc => {
+                    const s = doc.data();
+                    if (s.iadeDurumu !== true) {
+                        ciro += s.satisFiyati || 0;
+                        kar += s.kar || 0;
+                        maliyet += s.toplamMaliyet || 0;
+
+                        // Aylık Kâr Hesapla
+                        if (s.tarih) {
+                            const satisTarihi = s.tarih.toDate();
+                            if (satisTarihi.getMonth() === buAy && satisTarihi.getFullYear() === buYil) {
+                                aylikKar += s.kar || 0;
+                            }
+                        }
+                    }
+                });
+
+                // 2. Gider ve Ödeme Verilerini Çek (Logs içinden)
+                const logsSnap = await getDocs(collection(db, "Logs"));
+                let giderler = 0;
+                let personelOdemeleri = 0;
+
+                logsSnap.forEach(doc => {
+                    const l = doc.data();
+                    if (l.islemTipi === "Gider Eklendi" || l.islemTipi === "Gider İşlemi") {
+                        // Log detayından tutarı çekme (Sayısal veri olarak kaydetmiştik)
+                        // Not: Giderleri eklerken 'tutar' alanı olarak eklerseniz daha kesin olur. 
+                        // Şimdilik sistemin genel yapısına göre filtreliyoruz.
+                        const tutarMatch = l.detay.match(/Tutar: (\d+)/);
+                        if (tutarMatch) giderler += Number(tutarMatch[1]);
+                    }
+                    if (l.islemTipi === "Bakiye Ödemesi") {
+                        const tutarMatch = l.detay.match(/(\d+) TL ödendi/);
+                        if (tutarMatch) personelOdemeleri += Number(tutarMatch[1]);
+                    }
+                });
+
+                // 3. Hesaplamaları Ekrana Bas
+                const netKasa = ciro - giderler - personelOdemeleri;
+                const karOrani = ciro > 0 ? Math.round((kar / ciro) * 100) : 0;
+
+                document.getElementById('kasaNakit').innerText = netKasa.toLocaleString('tr-TR') + " TL";
+                document.getElementById('toplamCiro').innerText = ciro.toLocaleString('tr-TR') + " TL";
+                document.getElementById('toplamKar').innerText = kar.toLocaleString('tr-TR') + " TL";
+                document.getElementById('aylikKar').innerText = aylikKar.toLocaleString('tr-TR') + " TL";
+                document.getElementById('toplamGider').innerText = giderler.toLocaleString('tr-TR') + " TL";
+                
+                document.getElementById('karYuzdesi').innerText = "%" + karOrani;
+                document.getElementById('karBar').style.width = karOrani + "%";
+
+            } catch (error) {
+                console.error("Mali hesaplama hatası:", error);
+            }
+        }
+
+        // Gider Ekleme Butonu
+        document.getElementById('giderBtn').addEventListener('click', async () => {
+            const sebep = document.getElementById('giderSebep').value;
+            const tutar = document.getElementById('giderTutar').value;
+
+            if (!sebep || !tutar) return alert("Lütfen neden ve tutar girin!");
+
+            const btn = document.getElementById('giderBtn');
+            btn.innerText = "İşleniyor...";
+            btn.disabled = true;
+
+            try {
+                await addDoc(collection(db, "Logs"), {
+                    islemTipi: "Gider Eklendi",
+                    detay: `Gider: ${sebep} | Tutar: ${tutar} TL kasadan düşüldü.`,
+                    kullanici: userName,
+                    tarih: serverTimestamp()
+                });
+
+                alert("Gider kaydedildi, kasadan düşüldü.");
+                location.reload();
+            } catch (e) {
+                alert("Hata oluştu.");
+                btn.innerText = "Kasadan Ödeme Yap";
+                btn.disabled = false;
+            }
+        });
+
+        maliVerileriHesapla();
+    </script>
+</body>
+</html>

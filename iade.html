@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İade Yönetimi - SacryTech</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: #121212; color: #fff; padding: 20px; }
+        header { margin-bottom: 20px; }
+        .back-btn { background: none; color: #00d2ff; border: none; font-size: 16px; cursor: pointer; font-weight: bold; }
+        .card { background: #1e1e1e; padding: 15px; margin-bottom: 10px; border-left: 4px solid #ffaa00; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .card:hover { background: #2a2a2a; }
+        
+        /* Modal Tasarımı */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #1e1e1e; padding: 25px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid #ffaa00; }
+        
+        .btn-stok { width: 100%; padding: 15px; background: #00d2ff; color: #121212; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 16px; }
+        .btn-kapat { background: none; color: #ff4d4d; border: none; width: 100%; margin-top: 15px; cursor: pointer; font-size: 14px; }
+        
+        #liste { margin-top: 20px; }
+        .m-detay { margin-bottom: 10px; font-size: 14px; color: #ccc; line-height: 1.5; }
+        .m-detay strong { color: #fff; }
+    </style>
+</head>
+<body>
+    <header>
+        <button class="back-btn" onclick="window.location.href='dashboard.html'">❮ Geri</button>
+        <h2 style="margin-top:10px;">İade Bekleyen Ürünler</h2>
+        <p style="color:#aaa; font-size:13px;">Ürünleri stoka geri almak için üzerine tıklayın.</p>
+    </header>
+    
+    <div id="liste">Yükleniyor...</div>
+
+    <div class="modal" id="iadeModal">
+        <div class="modal-content">
+            <h3 id="mBaslik" style="color:#ffaa00; margin-bottom:15px;">İade Detayı</h3>
+            <div class="m-detay" id="mSebep"></div>
+            <div class="m-detay" id="mSatici"></div>
+            <div class="m-detay" id="mMaliyet"></div>
+            
+            <button class="btn-stok" id="stokGeriBtn">Onayla ve Stoka Geri Yükle</button>
+            <button class="btn-kapat" onclick="modaliKapat()">Vazgeç / Kapat</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, query, where, getDocs, updateDoc, doc, addDoc, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const app = initializeApp({ 
+            apiKey: "AIzaSyA2BFK8FPamp258Uk8OR3MXvLFWRMZFOxo", 
+            projectId: "sacrytecherp-373b5" 
+        });
+        const db = getFirestore(app);
+        const user = localStorage.getItem('kullaniciAdi');
+
+        let iadeler = []; // Verileri güvenli tutmak için dizi kullanıyoruz
+
+        async function yukle() {
+            const q = query(collection(db, "Sales"), where("iadeDurumu", "==", true));
+            const snap = await getDocs(q);
+            const div = document.getElementById('liste');
+            div.innerHTML = "";
+            iadeler = [];
+
+            if(snap.empty) { div.innerHTML = "<p style='color:#888;'>İade bekleyen işlem bulunamadı.</p>"; return; }
+
+            let index = 0;
+            snap.forEach(d => {
+                const data = d.data();
+                data.docId = d.id; // Firebase doküman ID'sini içine göm
+                iadeler.push(data);
+
+                div.innerHTML += `
+                <div class="card" onclick="detayAc(${index})">
+                    <strong>${data.urunler.join(', ')}</strong>
+                    <p style="color:#ffaa00; font-size:13px; margin-top:5px;">Sebep: ${data.iadeSebebi}</p>
+                    <small style="color:#666;">Tarih: ${data.iadeTarihi ? data.iadeTarihi.toDate().toLocaleString('tr-TR') : 'Bilinmiyor'}</small>
+                </div>`;
+                index++;
+            });
+        }
+
+        window.detayAc = function(idx) {
+            const s = iadeler[idx];
+            if(!s) return;
+
+            document.getElementById('mBaslik').innerText = s.urunler.join(', ');
+            document.getElementById('mSebep').innerHTML = `<strong>İade Nedeni:</strong> ${s.iadeSebebi}`;
+            document.getElementById('mSatici').innerHTML = `<strong>Satan Personel:</strong> ${s.satanKullanici}`;
+            document.getElementById('mMaliyet').innerHTML = `<strong>İade Tutarı:</strong> ${s.satisFiyati} TL`;
+            
+            document.getElementById('iadeModal').style.display = "flex";
+            
+            // Onayla Butonuna Fonksiyon Ata
+            document.getElementById('stokGeriBtn').onclick = async () => {
+                const btn = document.getElementById('stokGeriBtn');
+                btn.innerText = "İşleniyor...";
+                btn.disabled = true;
+
+                try {
+                    // 1. Ürünleri Products tablosunda tekrar "Stokta" yap
+                    if (s.urunIds && s.urunIds.length > 0) {
+                        for (let pid of s.urunIds) {
+                            await updateDoc(doc(db, "Products", pid), { durum: "Stokta" });
+                        }
+                    }
+
+                    // 2. Satış kaydını temizle (İade edildi ve stoka döndü)
+                    await deleteDoc(doc(db, "Sales", s.docId));
+
+                    // 3. Log kaydı oluştur
+                    await addDoc(collection(db, "Logs"), { 
+                        islemTipi: "İade Onaylandı", 
+                        detay: `${s.urunler.join(', ')} stoka geri yüklendi.`, 
+                        kullanici: user, 
+                        tarih: serverTimestamp() 
+                    });
+
+                    alert("İşlem Başarılı! Ürünler stok listesine geri döndü.");
+                    location.reload();
+                } catch (e) {
+                    console.error(e);
+                    alert("Bir hata oluştu. Lütfen bağlantınızı kontrol edin.");
+                    btn.innerText = "Onayla ve Stoka Geri Yükle";
+                    btn.disabled = false;
+                }
+            };
+        }
+
+        window.modaliKapat = function() {
+            document.getElementById('iadeModal').style.display = "none";
+        }
+
+        yukle();
+    </script>
+</body>
+</html>

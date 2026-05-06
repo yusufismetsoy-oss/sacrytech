@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kayıtlar</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: #121212; color: #fff; padding: 20px; }
+        .card { background: #1e1e1e; padding: 15px; margin-bottom: 10px; border-radius: 5px; border-left: 4px solid #ff4d4d; }
+    </style>
+</head>
+<body>
+    <button onclick="window.location.href='dashboard.html'" style="background:none; color:#00d2ff; margin-bottom:20px; border:none; font-size:16px;">❮ Geri</button>
+    <h2>Sistem İşlem Kayıtları</h2><br>
+    <div id="loglar"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA2BFK8FPamp258Uk8OR3MXvLFWRMZFOxo",
+            authDomain: "sacrytecherp-373b5.firebaseapp.com",
+            projectId: "sacrytecherp-373b5",
+            storageBucket: "sacrytecherp-373b5.firebasestorage.app",
+            messagingSenderId: "463347376648",
+            appId: "1:463347376648:web:383bc8376ec8ca992b67bd"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        async function yukle() {
+            const q = query(collection(db, "Logs"), orderBy("tarih", "desc"));
+            const snap = await getDocs(q);
+            const div = document.getElementById('loglar');
+            snap.forEach(d => {
+                const log = d.data();
+                div.innerHTML += `<div class="card">
+                    <strong style="color:#00d2ff">${log.islemTipi}</strong><br>
+                    <p style="margin:5px 0">${log.detay}</p>
+                    <small style="color:#aaa">Yapan: ${log.kullanici}</small>
+                </div>`;
+            });
+        }
+        yukle();
+    </script>
+</body>
+</html>
